@@ -1,0 +1,167 @@
+version: "3.7"
+services:
+  cert-builder:
+    build: ./secrets
+    container_name: cert-builder
+    volumes:
+    - ./secrets/out:/secrets/out
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:5.4.4
+    container_name: zookeeper
+    depends_on:
+      - cert-builder
+    ports:
+      - 2181:2181
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+      EXTRA_ARGS: "-Djava.security.auth.login.config=/etc/kafka/zk_server_jaas.conf -Dzookeeper.authProvider.1=org.apache.zookeeper.server.auth.SASLAuthenticationProvider"
+    volumes:
+      # - /var/run/docker.sock:/var/run/docker.sock
+      - ./config/zk_server_jaas.conf:/etc/kafka/zk_server_jaas.conf
+
+  kafka:
+    image: confluentinc/cp-kafka:5.4.4
+    container_name: kafka
+    restart: on-failure:3
+    depends_on:
+      - zookeeper
+      - cert-builder
+    ports:
+      - 9093:9093
+    environment:
+      KAFKA_BROKER_ID: "1"
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: SASL_SSL://kafka:9093
+      KAFKA_DELETE_TOPIC_ENBALE: "true"
+      KAFKA_SASL_ENABLED_MECHANISMS: PLAIN
+      KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL: PLAIN
+      KAFKA_SECURITY_INTER_BROKER_PROTOCOL: SASL_SSL
+      KAFKA_SSL_KEYSTORE_FILENAME: kafka.keystore.jks
+      KAFKA_SSL_KEYSTORE_CREDENTIALS: keystore_creds
+      KAFKA_SSL_KEY_CREDENTIALS: sslkey_creds
+      KAFKA_SSL_TRUSTSTORE_FILENAME: kafka.truststore.jks
+      KAFKA_SSL_TRUSTSTORE_CREDENTIALS: truststore_creds
+      KAFKA_SSL_CLIENT_AUTH: none
+      # keep it false, because it is not needed here
+      CONFLUENT_SUPPORT_METRICS_ENABLE: "false"
+      CONFLUENT_METRICS_TOPIC_REPLICATION: "1"
+      KAFKA_LOG4J_ROOT_LOGLEVEL: WARN
+      KAFKA_LOG4J_LOGGERS: "kafka.controller=WARN"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
+      KAFKA_OPTS: "-Djava.security.auth.login.config=/etc/kafka/kafka_server_jaas.conf -Djavax.net.ssl.keyStore=/etc/kafka/secrets/kafka.keystore.jks -Djavax.net.ssl.trustStore=/etc/kafka/secrets/kafka.truststore.jks -Djavax.net.ssl.keyStorePassword=qwerty123 -Djavax.net.ssl.trustStorePassword=qwerty123"
+    volumes:
+      # - /var/run/docker.sock:/var/run/docker.sock
+      - ./config/kafka_server_jaas.conf:/etc/kafka/kafka_server_jaas.conf
+      - ./secrets/out:/etc/kafka/secrets
+#      - ./secrets/out/kafka.keystore.jks:/etc/kafka/secrets/kafka.keystore.jks
+#      - ./secrets/out/kafka.truststore.jks:/etc/kafka/secrets/kafka.truststore.jks
+#      - ./secrets/out/sslkey_creds:/etc/kafka/secrets/sslkey_creds
+#      - ./secrets/out/keystore_creds:/etc/kafka/secrets/keystore_creds
+#      - ./secrets/out/truststore_creds:/etc/kafka/secrets/truststore_creds
+
+  pass-produce:
+    image: confluentinc/cp-kafkacat
+    container_name: pass-produce
+    restart: always
+    depends_on:
+      - cert-builder
+      - zookeeper
+      - kafka
+    command:
+      - "kafkacat"
+      - "-P"
+      - "-v"
+      - "-b"
+      - "kafka:9093"
+      - "-X"
+      - "security.protocol=SASL_SSL"
+      - "-X"
+      - "sasl.mechanism=PLAIN"
+      - "-X"
+      - "sasl.username=foobar"
+      - "-X"
+      - "sasl.password=user-foobar-secret"
+      - "-X"
+      - "ssl.ca.location=/keys/demo-ca-1.pem"
+      - "-t"
+      - "test"
+      - "-K"
+      - ","
+      - "-l"
+      - "/test/test-messages.txt"
+    volumes:
+      - ./secrets/out/demo-ca-1.pem:/keys/demo-ca-1.pem
+      - ./test/test-messages.txt:/test/test-messages.txt
+
+  fail-consume:
+    image: confluentinc/cp-kafkacat
+    container_name: fail-consume
+    restart: always
+    depends_on:
+      - cert-builder
+      - zookeeper
+      - kafka
+      - pass-produce
+    command:
+      - "kafkacat"
+      - "-C"
+      - "-v"
+      - "-b"
+      - "kafka:9093"
+      - "-X"
+      - "security.protocol=SASL_SSL"
+      - "-X"
+      - "sasl.mechanism=PLAIN"
+      - "-X"
+      - "sasl.username=foobar"
+      - "-X"
+      - "sasl.password=user-foobar-secret"
+      - "-X"
+      - "ssl.ca.location=/keys/fail-bundle.pem"
+      - "-t"
+      - "test"
+      - "-p"
+      - "0"
+      - "-o"
+      - "-50"
+      - "-e"
+    volumes:
+      - ./secrets/out/fail-bundle.pem:/keys/fail-bundle.pem
+
+  pass-consume:
+    image: confluentinc/cp-kafkacat
+    container_name: pass-consume
+    restart: always
+    depends_on:
+      - cert-builder
+      - zookeeper
+      - kafka
+      - pass-produce
+    command:
+      - "kafkacat"
+      - "-C"
+      - "-v"
+      - "-b"
+      - "kafka:9093"
+      - "-X"
+      - "security.protocol=SASL_SSL"
+      - "-X"
+      - "sasl.mechanism=PLAIN"
+      - "-X"
+      - "sasl.username=foobar"
+      - "-X"
+      - "sasl.password=user-foobar-secret"
+      - "-X"
+      - "ssl.ca.location=/keys/pass-bundle.pem"
+      - "-t"
+      - "test"
+      - "-p"
+      - "0"
+      - "-o"
+      - "-50"
+      - "-e"
+    volumes:
+      - ./secrets/out/pass-bundle.pem:/keys/pass-bundle.pem
+
