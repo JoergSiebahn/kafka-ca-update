@@ -7,7 +7,7 @@ services:
     - ./secrets/out:/secrets/out
 
   zookeeper:
-    image: confluentinc/cp-zookeeper:5.4.4
+    image: confluentinc/cp-zookeeper:6.1.1
     container_name: zookeeper
     depends_on:
       - cert-builder
@@ -22,7 +22,7 @@ services:
       - ./config/zk_server_jaas.conf:/etc/kafka/zk_server_jaas.conf
 
   kafka:
-    image: confluentinc/cp-kafka:5.4.4
+    image: confluentinc/cp-kafka:6.1.1
     container_name: kafka
     restart: on-failure:3
     depends_on:
@@ -62,7 +62,7 @@ services:
 #      - ./secrets/out/truststore_creds:/etc/kafka/secrets/truststore_creds
 
   pass-produce:
-    image: confluentinc/cp-kafkacat
+    image: confluentinc/cp-kafkacat:6.1.1
     container_name: pass-produce
     restart: always
     depends_on:
@@ -96,7 +96,7 @@ services:
       - ./test/test-messages.txt:/test/test-messages.txt
 
   fail-consume:
-    image: confluentinc/cp-kafkacat
+    image: confluentinc/cp-kafkacat:6.1.1
     container_name: fail-consume
     restart: always
     depends_on:
@@ -131,7 +131,7 @@ services:
       - ./secrets/out/fail-bundle.pem:/keys/fail-bundle.pem
 
   pass-consume:
-    image: confluentinc/cp-kafkacat
+    image: confluentinc/cp-kafkacat:6.1.1
     container_name: pass-consume
     restart: always
     depends_on:
