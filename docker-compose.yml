@@ -18,7 +18,6 @@ services:
       ZOOKEEPER_TICK_TIME: 2000
       EXTRA_ARGS: "-Djava.security.auth.login.config=/etc/kafka/zk_server_jaas.conf -Dzookeeper.authProvider.1=org.apache.zookeeper.server.auth.SASLAuthenticationProvider"
     volumes:
-      # - /var/run/docker.sock:/var/run/docker.sock
       - ./config/zk_server_jaas.conf:/etc/kafka/zk_server_jaas.conf
 
   kafka:
@@ -52,14 +51,8 @@ services:
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
       KAFKA_OPTS: "-Djava.security.auth.login.config=/etc/kafka/kafka_server_jaas.conf -Djavax.net.ssl.keyStore=/etc/kafka/secrets/kafka.keystore.jks -Djavax.net.ssl.trustStore=/etc/kafka/secrets/kafka.truststore.jks -Djavax.net.ssl.keyStorePassword=qwerty123 -Djavax.net.ssl.trustStorePassword=qwerty123"
     volumes:
-      # - /var/run/docker.sock:/var/run/docker.sock
       - ./config/kafka_server_jaas.conf:/etc/kafka/kafka_server_jaas.conf
       - ./secrets/out:/etc/kafka/secrets
-#      - ./secrets/out/kafka.keystore.jks:/etc/kafka/secrets/kafka.keystore.jks
-#      - ./secrets/out/kafka.truststore.jks:/etc/kafka/secrets/kafka.truststore.jks
-#      - ./secrets/out/sslkey_creds:/etc/kafka/secrets/sslkey_creds
-#      - ./secrets/out/keystore_creds:/etc/kafka/secrets/keystore_creds
-#      - ./secrets/out/truststore_creds:/etc/kafka/secrets/truststore_creds
 
   pass-produce:
     image: confluentinc/cp-kafkacat:6.1.1
